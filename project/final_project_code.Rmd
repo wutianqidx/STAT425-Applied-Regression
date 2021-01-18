@@ -1,0 +1,257 @@
+---
+title: "final_project"
+author: "Tianqi Wu"
+date: "4/28/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+library(corrplot)
+library(randomForest)
+library(leaps)
+library(car)
+library(splines)
+library(faraway)
+library(nlme)
+library(MASS)
+```
+
+```{r}
+## read data
+data_all = read.csv('stat425_fpdata.csv')
+data = data_all[data_all$hotel=='City Hotel',]
+data = data[, -1] ## delete variable hotel
+
+## rename variables
+colnames(data)[which(names(data) == "arrival_date_year")] <- "year"
+colnames(data)[which(names(data) == "arrival_date_week_number")] <- "week"
+colnames(data)[which(names(data) == "arrival_date_month")] <- "month"
+colnames(data)[which(names(data) == "arrival_date_day_of_month")] <- "day"
+colnames(data)[which(names(data) == "stays_in_weekend_nights")] <- "weekend_night"
+colnames(data)[which(names(data) == "stays_in_week_nights")] <- "week_night"
+colnames(data)[which(names(data) == "reserved_room_type")] <- "room_type"
+colnames(data)[which(names(data) == "total_of_special_requests")] <- "requests"
+
+```
+
+
+# Section 2:  Exploratory Data Analysis
+
+```{r}
+## check missing value
+sum(is.na(data))
+dim(data)
+
+## remove some apparent unusual obersvations
+data = data[which(data$adr>12),]
+data = data[which(data$market_segment!='Aviation'),]
+data = data[which(data$market_segment!='Complementary'),]
+data = data[which(data$room_type!='C'),]
+data = droplevels(data)
+
+## numeric to categoric
+data$is_canceled = as.factor(data$is_canceled)
+data$week = as.factor(data$week)
+data$year = as.factor(data$year)
+
+
+df.month = data.frame(month = format(ISOdate(2015,1:12,1),"%B"))
+data$month_number = mapply(function(x){which(df.month==as.character(x))}, data$month)
+dayofyear = function(month, day){as.POSIXlt(paste(day, month, sep='.'), format = "%d.%m")$yday+1}
+data$day = mapply(dayofyear, data$month_number, data$day)
+
+## week and month are redundant
+# chi-squared test: week and month are dependent
+tbl = table(as.factor(data$week), data$month)
+chisq.test(tbl)
+# Remove day, month,month_number
+data = subset(data,select=-c(month, month_number))
+
+## Generate Sec 2, Figure 1: Graphic display
+par(mfrow = c(3, 3))
+plot(adr~.,data)
+
+## Generate Sec 2, Figure 2:  check collinearity
+par(mfrow = c(1, 1))
+numeric = unlist(lapply(data, is.numeric))  
+corrplot(cor(data[,numeric]), method="ellipse")
+round(cor(data[,numeric]),1)
+summary(data)
+
+## Generate Sec 2, Figure 3: interaction plots
+interaction.plot(data$meal, data$room_type, data$adr)
+interaction.plot(data$meal, data$customer_type, data$adr)
+```
+
+
+# Section 3:  Method
+
+```{r}
+## train_test_split
+set.seed(123)
+index = sample(1:nrow(data),size=floor(0.8*nrow(data)))
+train_data = data[index,]
+test_data = data[-index,]
+test_x = subset(test_data, select = -c(adr))
+test_y = test_data$adr
+```
+
+```{r}
+## 3.1 simple model
+model.3.1 = lm(adr~.-day, train_data)
+#summary(model.3.1)
+
+## Training R^2
+summary(model.3.1)$r.squared
+## Training RMSE 
+sqrt(sum((model.3.1$fitted.values-train_data$adr)^2)/nrow(train_data))
+
+## testing R^2 squared
+predicted.adr = predict(model.3.1, newdata=test_x)
+1-sum((predicted.adr-test_y)^2)/sum((test_y-mean(test_y))^2)
+## testing RMSE
+sqrt(sum((predicted.adr-test_y)^2)/nrow(test_data))
+
+## Generate Sec 3.2, Figure 4: diagnostic plots
+par(mfrow=c(1,2))
+qqnorm(model.3.1$fitted.values)
+plot(model.3.1$fitted.values, model.3.1$residuals)
+
+## constant variance test
+bptest(model.3.1)
+
+## normality
+shapiro.test(residuals(model.3.1))
+
+## error independence
+dwtest(model.3.1)
+
+## model structure
+avPlots(model.3.1,~lead_time+adults+children+requests)
+```
+
+
+```{r}
+## variable selection
+step(model.3.1, scope=list(upper=~., lower=~1), trace=0)
+
+## 3.2 Linear Regression with Interaction and Qudratic Terms
+model.3.2.1 = lm(adr ~ is_canceled + lead_time + year + week + adults + 
+                  children + meal + market_segment + room_type + customer_type + 
+                  requests + meal:market_segment + meal:room_type + 
+                  meal:requests + market_segment:room_type  + 
+                  I(lead_time^2) + I(children^2) + I(adults^2), data = train_data)
+
+## model diagnostics
+## check leverage
+n=nrow(train_data); p=ncol(train_data);
+lev=influence(model.3.2.1)$hat
+sort(lev, decreasing = TRUE)[1:6]
+
+## check outliers
+jack=rstudent(model.3.2.1); 
+qt(.05/(2*n), n-p-1)
+sort(abs(jack), decreasing=TRUE)[1:5]
+
+## Influential observations
+cook = cooks.distance(model.3.2.1)
+halfnorm(cook, nlab=5, labs=row.names(train_data), ylab="Cook's distances")
+sort(abs(cook), decreasing=TRUE)[1:5]
+#max(cook)
+
+deleted = c('510', '1061', '1487', '1722', '1700', '1575')
+train_data.new = train_data[!row.names(train_data) %in% deleted,]
+
+## refit with new train_data
+model.3.2.2 = lm(adr ~ is_canceled + lead_time + year + week + adults + 
+                  children + meal + market_segment + room_type + customer_type + 
+                  requests + meal:market_segment + meal:room_type + 
+                  meal:requests + market_segment:room_type  + 
+                  I(lead_time^2) + I(children^2) + I(adults^2), data = train_data.new)
+
+## Section 3.2 Figure 5: boxcox
+par(mfrow=c(1,1))
+bc = boxcox(model.3.2.2)
+bc$x[bc$y == max(bc$y)]
+
+# Check for collinearlity
+# conditonal number
+x = model.matrix(model.3.2.2)[,c('lead_time','adults','children','requests')]
+x = x - matrix(apply(x,2, mean), nrow(x),ncol(x), byrow=TRUE)
+x = x / matrix(apply(x, 2, sd), nrow(x),ncol(x), byrow=TRUE)
+apply(x,2,mean)
+apply(x,2,var)
+e = eigen(t(x) %*% x) 
+sqrt(e$val[1]/e$val)
+
+# VIF
+round(faraway::vif(x), dig=2)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+## refit box-cox transformation
+model.3.2.3 = lm(adr^(0.38) ~ is_canceled + lead_time + year + week + adults + 
+                  children + meal + market_segment + room_type + customer_type + 
+                  requests + meal:market_segment + meal:room_type + 
+                  meal:requests + market_segment:room_type  + 
+                  I(lead_time^2) + I(children^2) + I(adults^2), data = train_data.new)
+
+
+summary(model.3.2.3)
+
+## Training R^2
+summary(model.3.2.3)$r.squared
+## Training RMSE 
+sqrt(sum((model.3.2.3$fitted.values^(1/0.38)-train_data.new$adr)^2)/nrow(train_data.new))
+
+## testing R^2 squared
+predicted.adr = predict(model.3.2.3, newdata=test_x)^(1/0.38)
+1-sum((predicted.adr-test_y)^2)/sum((test_y-mean(test_y))^2)
+## testing RMSE
+sqrt(sum((predicted.adr-test_y)^2)/nrow(test_data))
+
+## Generate Sec 3.2, Figure 6: diagnostic plots
+par(mfrow=c(1,2))
+qqnorm(model.3.2.3$fitted.values)
+plot(model.3.2.3$fitted.values, model.3.2.3$residuals)
+
+## constant variance test
+bptest(model.3.2.3)
+
+## normality
+shapiro.test(residuals(model.3.2.3))
+
+```
+
+
+
+```{r}
+## 3.3 Random Forest
+set.seed(123)
+model.3.3 = randomForest(adr~.-day, train_data)
+
+## train R^2 squared
+1-sum((model.3.3$predicted-train_data$adr)^2)/sum((train_data$adr-mean(train_data$adr))^2)
+## Training RMSE 
+sqrt(sum((model.3.3$predicted-train_data$adr)^2)/nrow(train_data))
+
+## test R^2 squared
+predicted.adr = predict(model.3.3, newdata=test_x)
+1-sum((predicted.adr-test_y)^2)/sum((test_y-mean(test_y))^2)
+## testing RMSE
+sqrt(sum((predicted.adr-test_y)^2)/nrow(test_data))
+
+```
+
+
+
+
+
+
+

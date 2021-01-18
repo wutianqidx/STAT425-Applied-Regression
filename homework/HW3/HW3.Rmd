@@ -1,0 +1,175 @@
+---
+title: "HW3"
+author: "Tianqi Wu"
+date: "3/9/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(faraway)
+library(lmtest)
+library(car)
+attach(sat)
+```
+
+# Problem 1 
+
+## (a) 
+From the scale-location plot, we can see a horizontal line with equally spread points, which indicates constant variance. Also, from the Breusch-Pagan test, since the p-value is 0.7066 > 0.05. We fail to reject the null hypothesis and conclude that constant variance assumption for the errors is valid. West virginia, North Dakota and Utah deviate from the line and we may examine them more.
+
+```{r}
+model.1 = lm(total~expend+salary+ratio+takers,data=sat)
+bptest(model.1)
+plot(model.1,which=3)
+```
+
+
+## (b)
+From the qq-plot, since it is approximately in a line, the normality assumption is valid. West virginia, North Dakota and Utah deviate from the line and we may examine them more. Also, from Shapiro-Wilk normality test, since p-value is 0.4304 > 0.05, We fail to reject the null hypothesis and conclude that normality assumption is valid.
+
+```{r}
+plot(model.1,which=2)
+shapiro.test(residuals(model.1))
+```
+
+## (c)
+From the anlaysis, California, Connecticut, New Jersey and Utah are large leverage points. We may examine them closely.
+```{r}
+lev=influence(model.1)$hat
+n=nrow(sat);p=5
+sat[lev > 2*p/n,]
+```
+
+## (d)
+West virginia has largest student residual 3.124 < 3.525. Hence, at 0.05 significance level, there is no outlier.
+
+```{r}
+jack=rstudent(model.1); 
+qt(.05/(2*n), n-p-1) # Bonferroni correction
+sort(abs(jack), decreasing=TRUE)[1:5]
+```
+
+## (e)
+Utah has max cook's distance 0.4715 < 1. Although there are no high influential points based on the rule-of-thumb, the cook's distance for Utah is much larger than the other samples. So, we may remove "Utah", refit the model, and check the changes.
+
+```{r}
+cook = cooks.distance(model.1)
+halfnorm(cook, labs=row.names(sat), ylab="Cook's distances")
+max(cook)
+```
+## (f)
+Since the added-variable plot produce points randomly scattered around a line through the origin for all the variables, the linear model structure assumption is valid. We also observe that "total" residuals decrease as takers residuals increase.
+```{r}
+avPlots(model.1)
+```
+
+# Problem2
+## (a) 
+From the scale-location plot, we can see the line has some nonlinearity. Also, the variance gets larger as fitted value increases. There is evidence of heterokedasticity and the constant variance assumption may not be valid. However, from the Breusch-Pagan test, since the p-value is 0.1693 > 0.05. We fail to reject the null hypothesis of homocedasticity. Oberservation 24,36 and 39 deviate from the line and we may examine them more.
+
+```{r}
+attach(teengamb)
+model.2 = lm(gamble~.,data=teengamb)
+bptest(model.2)
+plot(model.2,which=3)
+```
+
+
+## (b)
+From the qq-plot, we find that data may have heavy-tail problem and the normality assumption may not be valid. Oberservation 24,36 and 39 deviate from the line and we may examine them more. From the Shapiro-Wilk normality test, since p-value is 8.16e-05 < 0.05, we reject the null hypothesis and conclude that normality assumption is not valid. To solve the problem, we may use tranformation, robust regression or permutation test which does not have normality assumption.
+
+```{r}
+plot(model.2,which=2)
+shapiro.test(residuals(model.2))
+```
+
+## (c)
+From the anlaysis, 31,33,35 and 42 are large leverage points and we may examine them more.
+
+```{r}
+lev.2=influence(model.2)$hat
+n.2=nrow(teengamb);p.2=ncol(teengamb)
+teengamb[lev.2 > 2*p.2/n.2,]
+```
+
+## (d)
+Oberservation 24 has largest student residual 6.016116 > 3.522. Hence, at 0.05 significance level, oberservation 24 is the outlier.
+
+```{r}
+jack.2=rstudent(model.2); 
+qt(.05/(2*n.2), n.2-p.2-1) # Bonferroni correction
+sort(abs(jack.2), decreasing=TRUE)[1:5]
+```
+
+## (e)
+Oberservation 24 has max cook's distance 0.5565 < 1. Although there are no high influential points based on the rule-of-thumb, the cook's distance for oberservation 24 is much larger than the other samples. So, we may remove it, refit the model, and check the changes.
+
+```{r}
+cook.2 = cooks.distance(model.2)
+halfnorm(cook.2, labs=row.names(teengamb), ylab="Cook's distances")
+max(cook.2)
+```
+## (f)
+Since the added-variable plot produce points randomly scattered around a line through the origin for all the variables, the linear model structure assumption is valid. In every plot, observation 24 deviate from the line and we may remove it. We also oberserve that gamble residuals increase as income residuals increase.
+
+```{r}
+avPlots(model.2)
+```
+
+# Problem 3
+
+## (a) 
+From the scale-location plot, we can see a nearly horizontal line with equally spread points and there is no obvious pattern. The scale-location plot indicates constant variance. Also, from the Breusch-Pagan test, since the p-value is 0.2594 > 0.05. We fail to reject the null hypothesis and conclude that constant variance assumption for the errors is valid. Oberservation 39,69 and 95 deviate from the line and we may examine them more.
+
+```{r}
+attach(prostate)
+model.3 = lm(lpsa~.,data=prostate)
+bptest(model.3)
+plot(model.3,which=3)
+```
+
+
+## (b)
+From the qq-plot, since it is approximately in a line, the normality assumption is valid. Oberservation 39,69 and 95 deviate from the line and we may examine them more. Also, from Shapiro-Wilk normality test, since p-value is 0.7721 > 0.05, We fail to reject the null hypothesis and conclude that normality assumption is valid.
+```{r}
+plot(model.3,which=2)
+shapiro.test(residuals(model.3))
+```
+
+## (c)
+From the anlaysis, 32,37,41,74,92 are large leverage points and we may examine them more.
+
+```{r}
+lev.3=influence(model.3)$hat
+n.3=nrow(prostate);p.3=ncol(prostate)
+prostate[lev.3 > 2*p.3/n.3,]
+```
+
+## (d)
+Oberservation 39 has largest student residual 2.616980 < 3.607426. Hence, at 0.05 significance level, there is no outlier.
+
+```{r}
+jack.3=rstudent(model.3); 
+qt(.05/(2*n.3), n.3-p.3-1) # Bonferroni correction
+sort(abs(jack.3), decreasing=TRUE)[1:5]
+```
+
+## (e)
+Oberservation 32 has max cook's distance 0.1226977 < 1. Although there are no high influential points based on the rule-of-thumb, the cook's distance for oberservation 32 is much larger than the other samples. So, we may remove it, refit the model, and check the changes.
+
+```{r}
+cook.3 = cooks.distance(model.3)
+halfnorm(cook.3, labs=row.names(teengamb), ylab="Cook's distances")
+max(cook.3)
+```
+
+## (f)
+Since the added-variable plot produce points randomly scattered around a line through the origin for all the variables, the linear model structure assumption is valid. We also oberserve that lpsa residuals increase as lcavol residuals increase.
+
+```{r}
+avPlots(model.3)
+```

@@ -1,0 +1,161 @@
+---
+title: "HW7"
+author: "Tianqi Wu"
+date: "4/26/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(faraway)
+library(leaps)
+library(splines)
+attach(prostate)
+```
+
+
+# Problem 1
+
+## 1(a): Backward Elimination
+
+If we set the p-value threshold to 15%, backward elimination selects the following predictors:  lcavol, lweight, lbph, svi. The adjusted R-squared is 0.6208.
+
+```{r}
+model.1a.1 = lm(lpsa~., data=prostate)
+summary(model.1a.1)
+
+model.1a.2 = lm(lpsa~.-gleason, data=prostate)
+summary(model.1a.2)
+
+model.1a.3 = lm(lpsa~.-gleason-lcp, data=prostate)
+summary(model.1a.3)
+
+model.1a.4 = lm(lpsa~.-gleason-lcp-pgg45, data=prostate)
+summary(model.1a.4)
+
+model.1a.5 = lm(lpsa~.-gleason-lcp-pgg45-age, data=prostate)
+summary(model.1a.5)
+
+anova(model.1a.5, model.1a.1)
+
+```
+
+
+## 1(b): AIC
+lcavol, lweight, age, lbph, svi
+
+```{r}
+b=regsubsets(lpsa~., data=prostate)
+rs = summary(b)
+
+n=dim(prostate)[1]; msize = 2:9;
+par(mfrow=c(2,2))
+plot(msize, rs$adjr2, xlab="No. of Parameters", ylab = "Adjusted Rsquare");
+plot(msize, rs$cp, xlab="No. of Parameters", ylab = "Mallow's Cp");
+
+Aic = n*log(rs$rss/n) + 2*msize;
+Bic = n*log(rs$rss/n) + msize*log(n);
+plot(msize, Aic, xlab="No. of Parameters", ylab = "AIC");
+plot(msize, Bic, xlab="No. of Parameters", ylab = "BIC")
+
+## AIC
+rs$which[which.min(Aic),]
+```
+
+## 1(b): BIC
+lcavol, lweight, svi
+
+```{r}
+rs$which[which.min(Bic),]
+```
+
+## 1(c): Adjusted R^2
+lcavol, lweight, age, lbph, svi, lcp, pgg45 
+```{r}
+rs$which[which.max(rs$adjr2),]
+```
+
+## 1(d): Mallows Cp
+lcavol, lweight, lbph, svi
+```{r}
+rs$which[which.min(rs$cp),]
+```
+
+# Problem 2
+
+## 2(a)
+```{r}
+## prepare data
+set.seed(130)
+fun<-function(x) sin(2*pi*x^3)^3
+x<-seq(0,1,by=0.01)
+y<-fun(x) + 0.1*rnorm(101)
+
+## Regression Splines
+model.2a = lm(y~bs(x, df=16, intercept=TRUE))
+summary(model.2a)
+
+plot(x, y)
+lines(spline(x, predict(model.2a)), col="red", lty=1)
+```
+
+## 2(b)
+
+AIC is -450.451 and BIC is -408.6091.
+
+```{r}
+rs = anova(model.2a)$`Sum Sq`[2]
+
+n=101; msize = 16;
+Aic = n*log(rs/n) + 2*msize;
+Bic = n*log(rs/n) + msize*log(n)
+Aic
+Bic
+```
+
+## 2(c)
+
+For Aic, the best model has 20 knots. For Bic, the best model has 15 knots.
+
+```{r}
+n=101; 
+Aic = c(); Bic = c(); nparameter = c()
+for (i in 3:20) {
+  msize = i+4
+  model.2c = lm(y~bs(x, df=msize, intercept = T))
+  nparameter = append(nparameter, msize)
+  rs = anova(model.2c)$`Sum Sq`[2]
+  Aic = append(Aic, n*log(rs/n) + 2*msize)
+  Bic = append(Bic, n*log(rs/n) + msize*log(n))
+} 
+
+plot(nparameter, Aic, xlab="No. of Parameters", ylab = "AIC");
+plot(nparameter, Bic, xlab="No. of Parameters", ylab = "BIC")
+
+nparameter[which.min(Aic)]
+nparameter[which.min(Bic)]
+```
+
+## 2(d)
+
+```{r}
+## Aic
+model.aic = lm(y~bs(x, df=20, intercept = T))
+
+## Bic
+model.bic = lm(y~bs(x, df=15, intercept = T))
+
+plot(x, y)
+lines(spline(x, predict(model.aic)), col="red", lty=1)
+lines(spline(x, predict(model.bic)), col="blue", lty=1)
+legend("topright", lty=rep(1,1), col=c("red", "blue"), legend=c("Aic", "Bic"))
+```
+
+
+
+
+
+

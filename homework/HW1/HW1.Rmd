@@ -1,0 +1,99 @@
+---
+title: "HW1"
+author: "Tianqi Wu"
+date: "2/1/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(faraway)
+library(ggplot2)
+library(tidyr)
+```
+
+## Problem 1
+
+From the numerical and graphical summary, we can see that *lbph* (log(benign prostatic hyperplasia amount)), *lcp* (log(capsular penetration)) and *pgg45* (percentage Gleason scores 4 or 5) are quite skewed to the right. Most of men have small value for those three variables.
+*svi* is binary which takes value between 0 and 1. *gleason* is also categorical variable which takes value among 6,7,8 and 9.
+
+```{r}
+summary(prostate,digits=3)
+ggplot(gather(prostate), aes(value)) + 
+    geom_histogram(bins=10) + 
+    facet_wrap(~key, scales = 'free')
+```
+If we run a correlation analysis on the data. We could find that *gleason*(Gleason score) and *pgg45*(percentage Gleason scores 4 or 5) are strongly correlated with value of 0.752. It is not surprising since both of them are related to Gleason score. 
+
+```{r}
+round(cor(prostate),3)
+```
+ 
+If we assume that *lcavol* (log(cancer volume)) is the dependent varaiable. We could find that *lcp* (log(capsular penetration)) and *lpsa* (log(prostate specific antigen)) are highly correlated to *lcavol*. Scatter plots of those two are shown below and it is clear that they both are positively correlated to *lcavol*.
+
+```{r}
+ggplot(prostate,aes(x=lcp,y=lcavol))+geom_point()
+ggplot(prostate,aes(x=lpsa,y=lcavol))+geom_point()
+```
+
+## Problem 3
+
+### 3(a)
+Linear regression model fits the data well since most of the points are near the regression line. The processing time increases as number of invoices increases. There is no obvious outlier.
+
+```{r}
+data_invoices = read.csv('invoices.txt',sep='\t')
+plot(data_invoices$Invoices,data_invoices$Time)
+lm_invoices = lm(Time~Invoices,data_invoices)
+abline(lm_invoices)
+```
+
+
+### 3(b)
+The 95% confidence interval for the start-up time is (0.391,0.892)
+
+```{r}
+predict(lm_invoices,newdata=data.frame(Invoices=0),interval='confidence')
+```
+
+### 3(c)
+Since p-value=0.1257 > 0.05, we do not have enough evidence to reject the null hypothesis that the average processing time for an additional invoice is 0.01 hours.
+
+```{r}
+mycoef = summary(lm_invoices)$coefficients
+2*pt((0.01-mycoef[2,1])/mycoef[2,2], 28)
+```
+
+### 3(d)
+The point estimate is 2.109 and 95% prediction interval is (1.986,2.232) for the time taken to process 130 invoices.
+
+```{r}
+predict(lm_invoices,newdata=data.frame(Invoices=130),interval='confidence')
+```
+
+## Problem 5
+
+### 5(a)
+R-squared is 0.2792 which means that 27.92% of the variance in the data can be explained by the linear regression model. Adjusted R-squared is 0.2341 which means that 23.41% of the variance in the data can be explained by the linear regression model. R-squared always increases as number of predictors increases, adjusted R-squared penalizes additional predictors that are not helpful to explain the variance in data. Relatively low adjusted R-squared means that the linear regression model does not fit data well.
+
+```{r}
+data_indicators = read.csv('indicators.txt',sep='\t')
+lm_indicators = lm(PriceChange~LoanPaymentsOverdue,data=data_indicators)
+summary(lm_indicators)
+
+```
+
+### 5(b)
+
+The 95% confidence interval for the slope is (-4.163,-0.333). Since the confidence interval is negative, there is evidence of a significant negative linear association.
+
+```{r}
+confint(lm_indicators)
+```
+
+### 5(c)
+$E(Y|X=4)$ = -4.479 with 95% confidence interval (-6.648, -2.310). Since the confidence interval does not include 0%, it is not a feasible value.
+
+```{r}
+predict(lm_indicators,newdata=data.frame(LoanPaymentsOverdue=4),interval='confidence')
+```

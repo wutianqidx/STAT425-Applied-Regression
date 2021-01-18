@@ -1,0 +1,220 @@
+---
+title: "HW2_r"
+author: "Tianqi Wu"
+date: "2/16/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r,message=FALSE}
+library(faraway)
+library(ellipse)
+library(ggplot2)
+attach(sat)
+attach(prostate)
+attach(punting)
+```
+
+# Problem 1
+
+## 1(a)
+Since the p-value of t-statistic for $\beta_{salary}=0$ is 0.0667 > 0.05, we do not have enough evidence to reject the null hypothesis that $\beta_{salary}=0$ at 95% level of significance. Since the p-value for F-statistic is 0.01209 < 0.05, we reject the null hypothesis that $\beta_{salary}=\beta_{expend}=\beta_{ratio}=0$ at 95% level of significance. At least one of these predictors have an effect on the response.
+
+```{r}
+model.1a = lm(total~expend+ratio+salary,data=sat)
+summary(model.1a)
+```
+\newpage
+
+## 1(b)
+
+Since the p-value of t-statistic for $\beta_{takers}=0$ is 2.61e-16 < 0.05, we reject the null hypothesis that $\beta_{takers}=0$ at 95% level of significance. Since F-stat is 157.74 with p-value 2.607e-16 < 0.05, we reject the null hypothesis and conclude that the variation missed by the reduced model, when being compared with the error variance, is significantly large at 95% level of significance. It means that adding takers improves the model. Since t-stat for $\beta_{takers}=0$ is -12.559, $(t-stat)^2=(-12.559)^2=157.7285\approx157.74=F-stat$. F-test is equivalent to the t-test.
+
+```{r}
+model.1b = lm(total~expend+ratio+salary+takers,data=sat)
+summary(model.1b)
+anova(model.1a,model.1b)
+```
+
+\newpage
+
+# Problem 2
+
+## 2(a)
+
+The 95% CI for age is (-0.0418, 0.0025) and 90% CI for age is (-0.0382, -0.0010). The 95% CI is wider.
+
+```{r}
+model.2a = lm(lpsa~.,data=prostate)
+summary(model.2a)
+confint(model.2a,'age',level=0.95)
+confint(model.2a,'age',level=0.9)
+```
+
+\newpage
+
+## 2(b)
+
+Since the p-value for F-stat is 0.2167. We do not have enough evidence to reject the null hypothesis that the reduced model suffices. Despite the full model has higher adjusted R-squared, the reduced model is preferred according to the result of anova.
+
+```{r}
+model.2b = lm(lpsa~lcavol+lweight+svi,data=prostate)
+summary(model.2b)
+anova(model.2b,model.2a)
+```
+
+\newpage
+
+## 2(c)
+
+It tests whether the LS coefficients for *age* and *lbph* are zero or not. Since origin is included in the ellipsoid, we do not have enough evidence to reject the null hypothesis that the LS coefficients for *age* and *lbph* are zero at 95% level of significance.
+
+```{r}
+CR95 = ellipse(model.2a, c(4,5))
+CR95 = data.frame(CR95)
+dim(CR95)
+head(CR95)
+
+ggplot(data=CR95, aes(x=age, y=lbph)) + 
+  geom_path(size=1.5) + 
+  geom_point(x=coef(model.2a)[4], y=coef(model.2a)[5], shape=3, size=3, colour='red') + 
+  geom_point(x=0, y=0, shape=1, size=3, colour='red') 
+```
+
+## 2(d)
+
+The permutation test indicates that the p-value of t-test for *age* is 0.0852 when setting seed as 123. The p-value of t-test for *age* in the original full model is 0.08229. They are very close.
+
+```{r}
+set.seed(123)
+n.iter = 5000; 
+tstats = numeric(n.iter);
+for(i in 1:n.iter){
+  newprostate=prostate;
+  newprostate[,3]=prostate[sample(97),3];
+  ge = lm(lpsa ~., data=newprostate);
+  tstats[i] = summary(ge)$coef[4,3]
+}
+p.value= length(tstats[tstats > abs(summary(model.2a)$coef[4,3]) |
+                tstats < -abs(summary(model.2a)$coef[4,3])])/n.iter
+p.value
+```
+
+# Problem 3
+
+## 3(a)
+
+Since none of p-value of the predictors are less than 0.05, none of the predictors are significant at the 5% level.
+
+```{r}
+model.3a = lm(Distance~RStr+LStr+RFlex+LFlex,data=punting)
+summary(model.3a)
+
+```
+
+## 3(b)
+Since the F-stat is 5.59 with p-value 0.01902 < 0.05, we can reject the null hypothesis that $\beta_{RStr}=\beta_{LStr}=\beta_{RFlex}=\beta_{LFlex}=0$. These four predictors collectively are significant at the 5% level 
+
+## 3(c)
+
+$H_0: \beta_{RStr}=\beta_{LStr} \ vs.\ H_1: \beta_{RStr}\ne\beta_{LStr}$
+Since p-value is 0.468 > 0.05, we do not have enough evidence to reject the null hypothesis that right and left strength have the same effect at 95% level of significance.
+
+```{r}
+model.3c = lm(Distance~I(RStr+LStr)+RFlex+LFlex, data=punting)
+anova(model.3c,model.3a)
+```
+
+## 3(d)
+
+The test in 3(c) tests test whether the right and left strength have the same effect. Since the line *RStr*=*LStr* has intersection with the confidence region, we do not have enough evidence to reject the null hypothesis that right and left strength have the same effect.
+
+```{r}
+CR95.3d = ellipse(model.3a, c(2,3))
+CR95.3d = data.frame(CR95.3d)
+dim(CR95.3d)
+head(CR95.3d)
+
+ggplot(data=CR95.3d, aes(x=RStr, y=LStr)) + 
+  geom_path(size=1.5) +
+  geom_abline(intercept = 0, slope = 1)
+```
+
+## 3(e)
+
+The test result of 3(c) indicates that *RStr* and *LStr* have the same effect with present of *RFlex* and *LFlex*. Now we test whether they are same without present of *RFlex* and *LFlex*. F-stat has p-value 0.5978 > 0.05 indicates that we do not have enough evidence to reject the null hypothesis that *RStr* and *LStr* have the same effect without present of *RFlex* and *LFlex*. Then, we test whether total leg strength alone is sufficient. F-stat has p-value 0.2694 > 0.05 indicates that we do not have enough evidence to reject the null hypothesis and we conclude that total leg strength alone is sufficient to predict the response at 95% level of significance, in comparison to using individual left and right strengths.
+
+```{r}
+model.3e.total = lm(Distance~I(RStr+LStr),data=punting)
+model.3e.small = lm(Distance~RStr+LStr,data=punting)
+model.3e.large = lm(Distance~I(RStr+LStr)+RFlex+LFlex,data=punting)
+anova(model.3e.total,model.3e.small)
+anova(model.3e.total,model.3e.large)
+```
+
+## 3(f)
+
+$H_0: \beta_{RFlex}=\beta_{LFlex} \ vs.\ H_1: \beta_{RFlex}\ne\beta_{LFLex}$
+Since p-value is 0.2017 > 0.05, we do not have enough evidence to reject the null hypothesis that right and left leg flexibilities have the same effect at 95% level of significance.
+
+```{r}
+model.3f = lm(Distance~RStr+LStr+I(RFlex+LFlex), data=punting)
+anova(model.3f,model.3a)
+```
+
+## 3(g)
+
+$H_0: \beta_{RFlex}=\beta_{LFlex} \ and\  \beta_{RStr}=\beta_{LStr}$
+
+Since p-value is 0.337 > 0.05, we do not have enough evidence to reject the null hypothesis that left and right is symmetric at 95% level of significance.
+
+```{r}
+model.3g = lm(Distance~I(RStr+LStr)+I(RFlex+LFlex), data=punting)
+anova(model.3g,model.3a)
+```
+
+## 3(h)
+
+Since none of p-value of the predictors are less than 0.05, none of the predictors are significant at the 5% level. We cannot compare this model with model in 3(a) since this model is not nested in 3(a) and the model in 3(a) is not nested in this model.
+
+```{r}
+model.3h = lm(Hang~RStr+LStr+RFlex+LFlex,data=punting)
+summary(model.3h)
+```
+
+# Problem 5
+
+The predicted *lpsa* for this patient is 2.389053 with 95% CI (2.172437, 2.605669).
+
+## 5(a)
+```{r}
+model.5a = lm(lpsa~.,data=prostate)
+new_patient=data.frame(lcavol=1.44692,lweight=3.62301,age=65,lbph=0.3001,
+                       svi=0,lcp=-0.79851,gleason=7,pgg45=15)
+predict.lm(model.5a,newdata=new_patient,interval='confidence',level=0.95)
+```
+
+## 5(b)
+
+The predicted *lpsa* for this patient is 3.272726 with 95% CI (2.260444, 4.285007). Since *age* has min(41), mean(63.87), sd(7.445) for this dataset, *age*=20 deviates a lot from the mean. Hence, it is more difficult for the model to predict and it leads to wider confidence interval.
+
+```{r}
+new_patient.5b=data.frame(lcavol=1.44692,lweight=3.62301,age=20,lbph=0.3001,
+                       svi=0,lcp=-0.79851,gleason=7,pgg45=15)
+predict.lm(model.5a,newdata=new_patient.5b,interval='confidence',level=0.95)
+summary(prostate$age)
+```
+
+## 5(c)
+
+At 5% level of significance, we only keep *lcavol*, *lweight* and *svi*. The predicted *lpsa* for this patient is 2.372534 with 95% CI (2.197274, 2.547794). Since *age* is not included as predictor for this reduced model, change of *age* would not affect the prediction outcome. The new CI is almost the same as 5(a) and much narrower than 5(b). I would prefer the prediction from this new reduced model since it eliminates the predictors that are not significant at the 5% level. It makes the model more robust to the changes of relatively unimportant variables.
+
+```{r}
+summary(model.5a)
+model.5c = lm(lpsa~lcavol+lweight+svi,data=prostate)
+predict.lm(model.5c,newdata=new_patient.5b,interval='confidence',level=0.95)
+```

@@ -1,0 +1,158 @@
+---
+title: "MIdterm2"
+author: "Tianqi Wu"
+date: "4/8/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(faraway)
+library(lmtest)
+library(nlme)
+library(MASS)
+attach(cheddar)
+attach(cars)
+```
+
+
+# Problem 1
+
+## 1(a)
+There is no obvious pattern between residuals of the model and time. But it seems that taste score decreases as time increases. There might be some trend and errors might be correlated.
+
+```{r}
+model.1a = lm(taste~., data=cheddar)
+cheddar$time = 1:nrow(cheddar)
+plot(summary(model.1a)$res~time, type='o', data=cheddar)
+abline(h=0, lty=2, col="blue", lwd=2)
+```
+
+
+
+## 1(b)
+
+For dwtest, p-value > 0.05 indicates suggests that errors are not correlated. The RSS for the gls model is 10.33276 and it indicates that the model does not fit data well. The CI for phi includes the zero and it indicates that autocorrelation may not be needed.
+
+```{r}
+dwtest(model.1a)
+model.1b = gls(taste~.-time, corAR1(form= ~ time), data=cheddar)
+summary(model.1b)
+intervals(model.1b,which = "var-cov")
+```
+
+
+## 1(c)
+
+If we fit a LS model but with time now as an additional predictor, the predictor time has p-value < 0.05 indicates that it is statistically significant at 5% level.
+
+```{r}
+model.1c = lm(taste~., data=cheddar)
+summary(model.1c)
+```
+
+## 1(d)
+For LS model, we assume errors are independent with constant variance and use time as a predictor explicitly. Taste is expected to be decreased by 0.5459 if time increases by 1. 
+
+For GLS model, we assume errors are correlated and the covariance matrix takes some particular form. The pattern of time is included in the correlation structure. In this case, we use AR(1) time series.
+
+# Problem 2
+
+## 2(a)
+
+```{r}
+plot(dist~speed, data=cars)
+```
+
+
+## 2(b)
+
+```{r}
+model.2b = lm(dist~speed, data=cars)
+plot(dist~speed, data=cars)
+abline(model.2b)
+legend("topleft", col=c("black"), lty=c(1), legend=c("linear"))
+```
+
+## 2(c)
+
+```{r}
+model.2c = lm(dist~speed+I(speed^2), data=cars)
+plot(dist~speed, data=cars)
+lines(cars$speed, predict(model.2b), col="black", lty=1)
+lines(cars$speed, predict(model.2c), col="blue", lty=2)
+legend("topleft", col=c("black", "blue"), lty=c(1,2), legend=c("linear", "qudra"))
+```
+
+
+## 2(d)
+
+```{r}
+model.2d = lm(sqrt(dist)~speed, data=cars)
+plot(dist~speed, data=cars)
+lines(cars$speed, predict(model.2b), col="black", lty=1)
+lines(cars$speed, predict(model.2c), col="blue", lty=2)
+lines(cars$speed, predict(model.2d)^2, col="red", lty=3)
+legend("topleft", col=c("black", "blue",'red'), lty=c(1,2,3), legend=c("linear", "qudra",'sqrt(dist)'))
+```
+
+
+## 2(e)
+
+The default smoothing spline fit is similar to quadratic fit and sqrt(dist) as response fit. It seems that smoothing spline fits a little better at boundaries.
+
+```{r}
+plot(dist~speed, data=cars)
+lines(smooth.spline(cars$speed,cars$dist), lwd=1.5, col="red")
+```
+
+
+# Problem 3
+
+We fist plot yield against nitrogen and we find that there seems to be a linear trend but we need transformation to check. The data has replicates and it indicates that lack-of-fit test is suitable. The p-value for Shapiro-Wilk test and Breusch-Pagan test are greater than 0.05 and it means that the normality and homocedasticity assumptions are not violated. 
+
+Then, we plot yield against log(nitrogen+1) and the linear trend is much more obvious now. We use the transformation and refit the model. The residual plot shows normal behavior. The adjusted R-squared increases from 0.3818 to 0.6985.Finally, we perform a lack-of-fit test and the p-value is 0.843 > 0.05 and it means that we fail to reject the null hypothesis and concludes that our model does not have lack-of-fit. Hence, log transformation is suitable for this problem.
+
+```{r}
+plot(yield~nitrogen, data=cornnit)
+model.3.lm = lm(yield~nitrogen, data=cornnit)
+summary(model.3.lm)
+plot(model.3.lm,1)
+## Normality test
+shapiro.test(residuals(model.3.lm))
+## homocedasticity test 
+bptest(model.3.lm)
+
+## log tranformation fit
+plot(yield~log(1+nitrogen), data=cornnit)
+model.3.log = lm(yield~log(nitrogen+1), data=cornnit)
+plot(model.3.log,1)
+summary(model.3.log)
+
+## Goodness-of-fit test
+model3.factor = lm(yield~factor(nitrogen), data=cornnit)
+anova(model.3.log,model3.factor)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

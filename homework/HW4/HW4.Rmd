@@ -1,0 +1,121 @@
+---
+title: "HW4"
+author: "Tianqi Wu"
+date: "3/25/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(faraway)
+attach(salmonella)
+attach(gammaray)
+attach(longley)
+attach(prostate)
+library(nlme)
+library(lmtest)
+```
+# Problem 1
+
+Since p-value is 0.1341985 > 0.05, we fail to reject the null and conclude that there is no lack of fit.
+
+```{r}
+model.1 = lm(colonies~log(dose+1),data=salmonella)
+summary(model.1)
+
+model.1a=lm(colonies~factor(log(dose+1)),data=salmonella);
+anova(model.1, model.1a)
+1-pf(2.1709,4,12)
+```
+
+# Problem 2
+
+Adjusted R-squared from the WLS model is 0.968. We first apply log tranformation and use the errors to define the weights for WLS model.
+
+```{r}
+# time series model
+#model.2.ols = lm(flux~time, data=gammaray)
+#dwtest(model.2.ls)
+#model.2.gls = gls(flux~time,correlation=corARMA(p=1), weights = varFunc(~time), data=gammaray)
+#summary(model.2.ls)
+
+# WLS model
+model.2.ols = lm(flux~time, data=log(gammaray))
+model.2.wls = lm(flux~time, data=log(gammaray), weight=1/abs(error))
+summary(model.2.ols)
+summary(model.2.wls)
+
+plot(log(flux) ~ log(time), data=gammaray);
+points(log(flux) ~ log(time), data=gammaray, pch=2)
+abline(model.2.wls, col="red", lty=1, lwd=2);
+abline(model.2.ols, col="blue", lty=2, lwd=2);
+legend("topleft", col=c("red", "blue"), lty=c(1,2), legend=c("WLS", "OLS"))
+```
+
+# Problem 3
+
+## Condition numbers
+Since the condition number is 110.54 > 30, it is ill-conditioned and it indicates collinearity in data.
+
+```{r}
+model.3 = lm(Employed ~ .,data=longley)
+# condition number
+x = model.matrix(model.3)[,-1]
+x = x - matrix(apply(x,2, mean), nrow(x), ncol(x), byrow=TRUE)
+x = x / matrix(apply(x, 2, sd), nrow(x), ncol(x), byrow=TRUE)
+apply(x,2,mean)
+apply(x,2,var)
+e = eigen(t(x) %*% x)
+sqrt(e$val[1]/e$val)
+
+```
+
+## Correlation between predictors
+GNP.deflator, GNP, Population, Year and Employed are highly correlated to each other and it indicates collinearity in data.
+
+```{r}
+round(cor(longley), dig=2)
+```
+
+## VIF
+All the predictors have high VIF except Armed.Forces. For example, GNP has the highest VIF(1788.51) and it means that the se for the coef associated with GNP is 42.29078 times larger than it would have been without collinearity. High correlation, high VIF and high condition number indicate collinearity and we need to remove some variables.
+
+```{r}
+round(vif(x), dig=2)
+sqrt(1788.51)
+```
+
+# Problem 4
+
+## Condition numbers
+Since the condition number is 4.11 < 30, there is no evidence of collinearity in data.
+
+```{r}
+model.4 = lm(lpsa ~ .,data=prostate)
+# condition number
+x.4 = model.matrix(model.4)[,-1]
+x.4 = x.4 - matrix(apply(x.4,2, mean), nrow(x.4), ncol(x.4), byrow=TRUE)
+x.4 = x.4 / matrix(apply(x.4, 2, sd), nrow(x.4), ncol(x.4), byrow=TRUE)
+apply(x.4,2,mean)
+apply(x.4,2,var)
+e.4 = eigen(t(x.4) %*% x.4)
+sqrt(e.4$val[1]/e.4$val)
+
+```
+
+## Correlation between predictors
+lcavol is relatively highly correlated with the response variable lpsa(0.73). pgg45 is relatively highly correlated with gleason(0.75) and they may be dependent on each other. We need to further examine them and decide whether remove one of them.
+
+```{r}
+round(cor(prostate), dig=2)
+```
+
+## VIF
+Since all the predictors have very low VIF, there is no evidence of collinearity in data.
+
+```{r}
+round(vif(x.4), dig=2)
+```

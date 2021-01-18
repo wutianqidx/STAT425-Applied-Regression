@@ -1,0 +1,105 @@
+---
+title: "HW6"
+author: "Tianqi Wu"
+date: "4/17/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(faraway)
+attach(butterfat)
+library(lmtest)
+attach(morley)
+attach(alfalfa)
+```
+
+# Problem 1 
+
+## 1(a)
+Since our predictors are two categorical variables. Boxplots are appropriate here. As we can see, Breed of Holstein-Fresian has smallest butterfat and Jersey has largest butterfat. There is not big difference between age of 2year and mature.
+
+```{r}
+par(mfrow=c(2,2))
+
+boxplot(Butterfat~Breed, data=butterfat, outline=FALSE)
+stripchart(Butterfat~Breed, data=butterfat, method="jitter",
+           col="blue", vertical=TRUE, add=TRUE)
+
+boxplot(Butterfat~Age, data=butterfat, outline=FALSE)
+stripchart(Butterfat~Age, data=butterfat, method="jitter",
+           col="blue", vertical=TRUE, add=TRUE)
+
+interaction.plot(butterfat$Breed, butterfat$Age, butterfat$Butterfat)
+interaction.plot(butterfat$Age, butterfat$Breed, butterfat$Butterfat)
+```
+
+## 1(b)
+
+Since the Breed:Age has p-value 0.5658 > 0.05, we fail to reject the null hypothesis and conclude that there is no interaction between breed and age.
+
+```{r}
+model.1b=lm(Butterfat ~ Breed*Age, butterfat)
+anova(model.1b)
+```
+
+## 1(c)
+
+Since the p-value for Breed < 0.05 and p-value for Age > 0.05, we conclude that there is statistically significant difference between breeds but there is no such difference between ages.
+
+
+## 1(d)
+
+Since The p-value for wilks-shapiro test is 0.01635 < 0.05, we reject the null hypothesis and conclude that the normality assumption is violated. However, from the qq plot, the data only shows light skewness. Since the p-value for Levene’s test is 0.007686 < 0.01, we reject the null hypothesis and conclude that  homocedasticity assumption is violated. Also, the residual plot shows increasing residual as fitted value increases. It indicates we may need some transformation. No outlier is detected.
+
+```{r}
+par(mfrow=c(1,2))
+qqnorm(model.1b$res)
+plot(model.1b$fitted, model.1b$res, xlab="FItted", ylab="Residuals")
+shapiro.test(residuals(model.1b))
+summary(lm(abs(model.1b$res) ~ Breed*Age)) 
+
+## outliers
+n = nrow(butterfat)
+p = ncol(butterfat)
+jack=rstudent(model.1b)
+qt(.05/(2*n), n-p-1)
+sort(abs(jack), decreasing=TRUE)[1:5]
+```
+
+
+## 1(e)
+
+From previous boxplots, we can see that the best breed is Jersey and the second best is Guernsey. From the tukey pairwise CIs, since CI of Jersey-Guernsey includes 0, we do not enough evidence to conclude that the best breed is clearly superior to the second best.
+
+```{r}
+TukeyHSD(aov(Butterfat ~ Breed + Age, data=butterfat), "Breed")
+```
+
+# Problem 2 
+Since p-value for Run > 0.05, we fail to reject the null hypothesis and conclude that there is no significantly difference between runs. The relative efficiency is 1.1689. It indicates that we would gain 16.89% efficiency with blocking factor.
+
+```{r}
+morley$Expt = as.factor(morley$Expt)
+morley$Run = as.factor(morley$Run)
+anova(lm(Speed~Expt+Run, morley))
+anova(lm(Speed~Run, morley))
+# efficiency
+sigma_crd = 6308.5
+sigma_rcbd = 5396.9
+sigma_crd/sigma_rcbd
+```
+
+
+# Problem 3 
+
+From the anova result, since p-value of inoculum < 0.05, we reject the null hypothesis and conclude that  there a difference between inoculum. From the summary, the p-value of inoculumE < 0.05 and it is the only level that is significantly different. From the tukey pairwise CIs, E-A, E-B, E-C and E-D are significantly different since their CIs do not include 0. In conclusion, level E is significantly different from other four levels.
+
+```{r}
+model.3 = lm(yield~inoculum+irrigation+shade, alfalfa)
+anova(model.3)
+TukeyHSD(aov(yield~inoculum+irrigation+shade, alfalfa), "inoculum")
+```

@@ -1,0 +1,127 @@
+---
+title: "HW5"
+author: "Tianqi Wu"
+date: "4/1/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(faraway)
+library(nlme)
+library(lmtest)
+library(splines)
+library(lmtest)
+library(car)
+attach(aatemp)
+attach(infmort)
+attach(pulp)
+attach(chickwts)
+```
+
+# Problem 1 
+
+## 1(a)
+From the plot, there seems to be a weak positive linear trend between temperature and year.
+
+```{r}
+plot(aatemp$year, aatemp$temp)
+model.1a = lm(temp~year, data=aatemp)
+abline(model.1a)
+```
+
+## 1(b)
+
+Since p-value of D-W test is 0.01524 < 0.05, it indicates that the errors are significantly correlated. After fitting a Regression with autocorrelated errors, the RSE is 1.475718 and it indicates that the model fits the data pretty well and it indicates there is a linear trend.
+
+```{r}
+dwtest(model.1a)
+model.1b = gls(temp ~ year, correlation = corAR1(form= ~ year), data=aatemp)
+summary(model.1b)
+```
+
+## 1(c)
+ 
+Using backward elimination, degree is chosen to be 5. The temperature in 2020 is predicted to be 60.07774. 
+
+```{r}
+round(summary(lm(temp~poly(year, 10), aatemp))$coef[11,], dig=3)
+round(summary(lm(temp~poly(year, 9), aatemp))$coef[10,], dig=3)
+round(summary(lm(temp~poly(year, 8), aatemp))$coef[9,], dig=3)
+round(summary(lm(temp~poly(year, 7), aatemp))$coef[8,], dig=3)
+round(summary(lm(temp~poly(year, 6), aatemp))$coef[7,], dig=3)
+round(summary(lm(temp~poly(year, 5), aatemp))$coef, dig=3)
+
+model.1c = lm(temp~poly(year, 5), aatemp)
+
+plot(temp~year,data=aatemp)
+lines(aatemp$year, predict(model.1c),col="red", lty=1)
+
+predict(model.1c, newdata=data.frame(year=2020))
+```
+## 1(d)
+
+There is not a big difference between the fitting of cubic spline model and polynomial model. It seems that cubic spline model is smoother and might be better in this case.
+
+```{r}
+model.1d = lm(temp~bs(year, df=6,intercept=TRUE), data=aatemp)
+plot(temp~year,data=aatemp)
+lines(aatemp$year, predict(model.1c),col="red", lty=1, )
+lines(spline(aatemp$year, predict(model.1d)), col="blue", lty=2)
+legend("topleft", col=c("red", "blue"), lty=c(1,2), legend=c("poly", "spline"))
+```
+
+# Problem 2
+
+From the model diagnostic for lm(mortality ~ .,data=infmort), we can see that 'Saudi_Arabia' and 'Afganistan' deviate a lot from other samples and can be seen as unusual points. Hence, we remove them to fit a better model. There is no obvious linear trend between motarlity and income in the original data but there is an obvious linear trend if we perform the log transformation. After log transformation and removing unusual points, we refit the model and the adjusted R-squared is 0.7124. 
+
+Infant mortality is expected to be 6.9317 if the region is Africa and the country exports oil without considering income. In addition, infant mortality is expected to decrease by 0.3483 with one unit increase of log(income). Infant mortality is expected to decrease by 1.0396, 0.8749 and 0.5376 if the region is Europe, Asia and Americas respectively. Infant mortality is expected to decrease by 0.3070 if the country does not export oil.
+
+```{r}
+model.2a = lm(mortality ~ .,data=infmort)
+plot(model.2a)
+data.2 = infmort[!(row.names(infmort) %in% c('Saudi_Arabia       ', 'Afganistan         ')),]
+plot(mortality~income,data=data.2)
+plot(log(mortality) ~ log(income),data=data.2)
+model.2b = lm(log(mortality) ~ log(income)+region+oil, data=data.2)
+summary(model.2b)
+```
+
+# Problem 3
+
+From the anova result, p-value = 0.0226 < 0.05 indicates that there is difference between the operators. Operator d has p-value 0.0486 < 0.05 and it is statistically significant to the brightness.
+
+The brightness is expected to be 60.2400 if the pulp is operator a. In addition, the brightness is expected to be decreased by 0.18 if the pulp is operator b and increased by 0.38 and 0.44 if the pulp is operator c and d respectively. It means that pulp with operator d is expected to have the largest brightness and pulp with operator d is expected to have the lowest brightest.
+
+```{r}
+model.3 = lm(bright~operator, data=pulp)
+anova(model.3)
+summary(model.3)
+```
+
+# Problem 4
+
+From the anova result, p-value = 5.936e-10 < 0.05 indicates that there is difference between the feed type.
+
+Since the p-value for BP test is 0.4958>0.05, we fail to reject the null hypothesis: H0: There is homocedasticity. The constant variance assumption is not violated.
+
+The normal qqplot shows that the residuals are not departing from the normality assumption in the central
+part of the data distribution. There are some deviations in the left tail and right tail. We failed to reject the wilks-shapiro test; therefore we support the null hypothesis of normality of the response variable. There is no obvious unusual points with high leverage or cook's distance.
+
+```{r}
+model.4 = lm(weight~feed, data=chickwts)
+anova(model.4)
+summary(model.4)
+plot(model.4)
+# constant-variance
+bptest(model.4)
+# normality
+shapiro.test(residuals(model.4))
+```
+
+
+
+

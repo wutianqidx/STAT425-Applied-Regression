@@ -1,0 +1,117 @@
+---
+title: "HW8"
+author: "Tianqi Wu"
+date: "5/1/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(faraway)
+library(rpart)
+attach(diabetes)
+attach(wbca)
+```
+
+
+# Problem 1
+
+## 1(a)
+
+From the plots, it seems that stab.glu is positively linearly related to glyhb. There is no other obvious linear trend and transformation may be needed.
+
+```{r}
+par(mfrow = c(3, 3))
+plot(glyhb~., data=diabetes)
+```
+
+
+## 1(b)
+From summary, we can see that there are 262 missing values for bp.2s and bp.2d. Hence, we remove the two columns. Other variables have small amount of missing values (<15) and we just remove the rows with missing values. In total, we removed 2 columns and 37 rows. The reduced dataset has 366 observations.
+
+```{r}
+summary(diabetes)
+data = subset(diabetes, select=-c(bp.2s,bp.2d))
+sum(!complete.cases(data))
+which(is.na(data))
+data = na.omit(data)
+```
+
+## 1(c)
+
+For stab.glu< 158, we have 324 obersvations and mean response is 5.028333. The largest terminal node is where the split gives largest number of observations. In this case, age<55.5 is the largest terminal node with 205 observations and the mean response is 4.598683.
+
+```{r}
+model.1c = rpart(glyhb~., data=data)
+model.1c
+```
+
+## 1(d)
+
+The most important predictor is the highest split in the tree. In this case, stab.glu is the most important predictor and it could split the observations most.
+
+```{r}
+plot(model.1c,compress=T,uniform=T,branch=0.4,margin=.1)
+text(model.1c)
+```
+
+
+## 1(e)
+
+It seems that variance of residuals gets larger as fitted values increases. Though not obvious, we could see small trumpet pattern.
+
+```{r}
+plot(predict(model.1c),residuals(model.1c))
+```
+
+## 1(f)
+
+The smallest tree would only have one split: stab.glu< 158.
+
+```{r}
+myCPtable = model.1c$cptable
+id.min = which.min(myCPtable[,'xerror'])
+my1se.err = myCPtable[id.min,'xerror'] + myCPtable[id.min, 'xstd']
+id.1se = min(which(myCPtable[,'xerror'] < my1se.err)) 
+CP.1se = (myCPtable[id.1se, 'CP'] + myCPtable[(id.1se-1), 'CP'])/2
+tree.1se = prune.rpart(model.1c, CP.1se)
+plot(tree.1se, compress=T,uniform=T,branch=0.4,margin=.1)
+text(tree.1se)
+```
+
+# Problem 2 
+
+## 2(a)
+
+The residual deviance is 89.464  on 671  degrees of freedom. It can be used to determine if the models fits the data since it is like residual sum of square. The lower the residual deviance, the better the model.
+
+
+```{r}
+model.2a = glm(Class~., data=wbca, family=binomial)
+summary(model.2a)
+```
+
+## 2(b)
+
+According to AIC criterion, the best subset of variables would be: Adhes + BNucl + Chrom + Mitos + NNucl + Thick + UShap.
+
+```{r}
+model.2b = step(model.2a, scope=list(upper=~., lower=~1))
+```
+
+## 2(c)
+
+There are 11 false positives and 9 false negatives.
+
+```{r}
+phat=model.2b$fitted.values;
+mypred = (phat>0.5)
+table(wbca$Class, mypred)
+```
+
+
+
+
